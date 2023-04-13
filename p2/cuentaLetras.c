@@ -23,23 +23,26 @@ int MPI_FlattreeColectiva(void *buff, void *rcvBuff, int count, MPI_Datatype typ
 }
 
 int MPI_BinomialColectiva(void *buff,int count,MPI_Datatype type,int process, MPI_Comm WORLD){
-  int target, numprocs;
-  
+  int target,process_Rank, numprocs;
+  MPI_Comm_rank(WORLD, &process_Rank);
   MPI_Comm_size(WORLD, &numprocs);
 
-    for(int i = 1; i < ceil(log2(numprocs)); i++){
-      printf("manda %d", process);
-      if (process < (pow(2,i-1))){ 
-          if ((process + pow(2,i-1)) < numprocs){
-          target = (int)(process + pow(2,i-1));
-          printf("a %d\n", target);
+    for(int i = 1; i <= ceil(log2(numprocs)); i++){
+
+      if (process_Rank < (pow(2,i-1))){ 
+          if ((process_Rank + pow(2,i-1)) < numprocs){
+          target = (int)(process_Rank + pow(2,i-1));
+          //printf("manda %d a %d\n", process_Rank, target);
           MPI_Send(buff, count, type, target, 10, WORLD);
-          printf("ENVIADO\n");
+          //printf("ENVIADO\n");
+          } 
+          
+        } else if (process_Rank < (pow(2,i))) {
+          //printf("recive %d\n", process_Rank);
+            MPI_Recv(buff,count,type,MPI_ANY_SOURCE, 10, WORLD, NULL); 
           }
-        }
       else{
-        printf("recive %d", process);
-         MPI_Recv(buff,count,type,MPI_ANY_SOURCE, 10, WORLD, NULL); 
+
       }
     }
   return 0;
@@ -90,7 +93,7 @@ int main(int argc, char *argv[])
 
   //MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
   //MPI_Bcast(&L, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
-  MPI_BinomialColectiva(&n, 1, MPI_INT, process_Rank, MPI_COMM_WORLD);
+  MPI_BinomialColectiva(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   for(i=process_Rank; i<n; i+= numprocs){
     if(cadena[i] == L){
@@ -98,7 +101,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  MPI_Reduce(&aux, &count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  //MPI_Reduce(&aux, &count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
   MPI_FlattreeColectiva(&aux, &count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
   if(process_Rank == 0)  printf("El numero de apariciones de la letra %c es %d\n", L, count);
