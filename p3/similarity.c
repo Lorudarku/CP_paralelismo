@@ -11,9 +11,15 @@
    T -> 3
    N -> 4*/
 
-
 #define M  1000000 // Number of sequences
 #define N  200  // Number of bases per sequence
+
+unsigned int g_seed = 0;
+
+int fast_rand(void) {
+    g_seed = (214013*g_seed+2531011);
+    return (g_seed>>16) % 5;
+}
 
 // The distance between two bases
 int base_distance(int base1, int base2){
@@ -59,8 +65,9 @@ int main(int argc, char *argv[] ) {
   /* Initialize Matrices */
   for(i=0;i<M;i++) {
     for(j=0;j<N;j++) {
-      data1[i*N+j] = (i+j)%5;
-      data2[i*N+j] = 4-data1[i*N+j];
+      /* random with 20% gap proportion */
+      data1[i*N+j] = fast_rand();
+      data2[i*N+j] = fast_rand();
     }
   }
 
@@ -77,8 +84,14 @@ int main(int argc, char *argv[] ) {
     
   int microseconds = (tv2.tv_usec - tv1.tv_usec)+ 1000000 * (tv2.tv_sec - tv1.tv_sec);
 
-  /*Display result */
-  if (DEBUG){
+  /* Display result */
+  if (DEBUG == 1) {
+    int checksum = 0;
+    for(i=0;i<M;i++) {
+      checksum += result[i];
+    }
+    printf("Checksum: %d\n ", checksum);
+  } else if (DEBUG == 2) {
     for(i=0;i<M;i++) {
       printf(" %d \t ",result[i]);
     }
@@ -90,4 +103,3 @@ int main(int argc, char *argv[] ) {
 
   return 0;
 }
-
