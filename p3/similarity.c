@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <math.h>
+#include <mpi.h>
 
 #define DEBUG 0
 
@@ -53,7 +55,8 @@ int base_distance(int base1, int base2){
 
 int main(int argc, char *argv[] ) {
 
-  int i, j;
+  int i, j, timeF = 0;
+  int process_Rank, numprocs;
   int *data1, *data2;
   int *result;
   struct timeval  tv1, tv2;
@@ -71,19 +74,52 @@ int main(int argc, char *argv[] ) {
     }
   }
 
+  MPI_Init(&argc, &argv);
+  MPI_Status status;
+  MPI_Comm_rank(MPI_COMM_WORLD, &process_Rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+  
+  int *aux1 = (int *) malloc(floor((M)/numprocs)*N*sizeof(int));
+  int *aux2 = (int *) malloc(floor((M)/numprocs)*N*sizeof(int));
+  int *aux3 = (int *) malloc(floor((M)/numprocs)*sizeof(int));
+
+
+  MPI_Scatter(data1, floor((M)/numprocs)*N, MPI_INT,&aux1,floor(numprocs/(M)), MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Scatter(data2, floor((M)/numprocs)*N, MPI_INT,&aux2,floor(numprocs/(M)), MPI_INT, 0, MPI_COMM_WORLD);
+  
+
+  if(fmod(numprocs,M)!=0.0){
+    if(process_Rank == 0){
+      for(i=M; i<(M-fmod(numprocs,M)); i--){
+        result[i]=0;
+        for(j=0;j<N;j++){
+          result[i] += base_distance(data1[i*N+j], data2[i*N+j]);
+        }
+      }
+    }
+  }
+
   gettimeofday(&tv1, NULL);
 
-  for(i=0;i<M;i++) {
-    result[i]=0;
+  for(i=0;i<(numprocs/M);i++) {
+    aux3[i]=0;
     for(j=0;j<N;j++) {
-      result[i] += base_distance(data1[i*N+j], data2[i*N+j]);
+    aux3[i] += base_distance(aux1[i*N+j], aux2[i*N+j]);
     }
   }
 
   gettimeofday(&tv2, NULL);
     
   int microseconds = (tv2.tv_usec - tv1.tv_usec)+ 1000000 * (tv2.tv_sec - tv1.tv_sec);
+  MPI_Reduce(&microseconds, &timeF, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Gather(aux3, floor((M)/numprocs), MPI_INT, result, M, MPI_INT, 0, MPI_COMM_WORLD);
 
+  MPI_Finalize();
+
+  timeF = timeF/N;
+
+  
+  
   /* Display result */
   if (DEBUG == 1) {
     int checksum = 0;
@@ -96,7 +132,7 @@ int main(int argc, char *argv[] ) {
       printf(" %d \t ",result[i]);
     }
   } else {
-    printf ("Time (seconds) = %lf\n", (double) microseconds/1E6);
+    printf ("Time (seconds) = %lf\n", (double) timeF/1E6);
   }    
 
   free(data1); free(data2); free(result);
