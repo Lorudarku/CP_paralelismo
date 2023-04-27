@@ -4,7 +4,7 @@
 #include <math.h>
 #include <mpi.h>
 
-#define DEBUG 0
+#define DEBUG 1
 
 /* Translation of the DNA bases
    A -> 0
@@ -13,7 +13,7 @@
    T -> 3
    N -> 4*/
 
-#define M  1000000 // Number of sequences
+#define M  100 // Number of sequences
 #define N  200  // Number of bases per sequence
 
 unsigned int g_seed = 0;
@@ -65,6 +65,10 @@ int main(int argc, char *argv[] ) {
   data2 = (int *) malloc(M*N*sizeof(int));
   result = (int *) malloc(M*sizeof(int));
 
+  for(i=0;i<M;i++) {
+    result[i] = 0;
+  }
+
   /* Initialize Matrices */
   for(i=0;i<M;i++) {
     for(j=0;j<N;j++) {
@@ -83,14 +87,19 @@ int main(int argc, char *argv[] ) {
   int *aux2 = (int *) malloc(floor((M)/numprocs)*N*sizeof(int));
   int *aux3 = (int *) malloc(floor((M)/numprocs)*sizeof(int));
 
+  printf("Antes\n");
 
-  MPI_Scatter(data1, floor((M)/numprocs)*N, MPI_INT,&aux1,floor(numprocs/(M)), MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Scatter(data2, floor((M)/numprocs)*N, MPI_INT,&aux2,floor(numprocs/(M)), MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Scatter(data1, floor((M)/numprocs)*N, MPI_INT,aux1,floor((M)/numprocs)*N, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Scatter(data2, floor((M)/numprocs)*N, MPI_INT,aux2,floor((M)/numprocs)*N, MPI_INT, 0, MPI_COMM_WORLD);
   
+  printf("Despues\n");
+
+  gettimeofday(&tv1, NULL);
 
   if(fmod(numprocs,M)!=0.0){
     if(process_Rank == 0){
       for(i=M; i<(M-fmod(numprocs,M)); i--){
+        printf(" %d \n ",i);
         result[i]=0;
         for(j=0;j<N;j++){
           result[i] += base_distance(data1[i*N+j], data2[i*N+j]);
@@ -99,9 +108,8 @@ int main(int argc, char *argv[] ) {
     }
   }
 
-  gettimeofday(&tv1, NULL);
-
   for(i=0;i<(numprocs/M);i++) {
+    printf("proceso: %d - %d \n ",process_Rank, i);
     aux3[i]=0;
     for(j=0;j<N;j++) {
     aux3[i] += base_distance(aux1[i*N+j], aux2[i*N+j]);
@@ -112,30 +120,33 @@ int main(int argc, char *argv[] ) {
     
   int microseconds = (tv2.tv_usec - tv1.tv_usec)+ 1000000 * (tv2.tv_sec - tv1.tv_sec);
   MPI_Reduce(&microseconds, &timeF, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-  MPI_Gather(aux3, floor((M)/numprocs), MPI_INT, result, M, MPI_INT, 0, MPI_COMM_WORLD);
-
-  MPI_Finalize();
-
-  timeF = timeF/N;
+  MPI_Gather(aux3, floor((M)/numprocs), MPI_INT, result, floor((M)/numprocs), MPI_INT, 0, MPI_COMM_WORLD);
 
   
   
   /* Display result */
-  if (DEBUG == 1) {
-    int checksum = 0;
-    for(i=0;i<M;i++) {
-      checksum += result[i];
-    }
-    printf("Checksum: %d\n ", checksum);
-  } else if (DEBUG == 2) {
-    for(i=0;i<M;i++) {
-      printf(" %d \t ",result[i]);
-    }
-  } else {
-    printf ("Time (seconds) = %lf\n", (double) timeF/1E6);
-  }    
+  if (process_Rank == 0){
+    timeF = timeF/N;
 
-  free(data1); free(data2); free(result);
+    if (DEBUG == 1) {
+      int checksum = 0;
+      for(i=0;i<M;i++) {
+        checksum += result[i];
+      }
+      printf("Checksum: %d\n ", checksum);
+    } else if (DEBUG == 2) {
+      for(i=0;i<M;i++) {
+        printf(" %d \t ",result[i]);
+      }
+    } else {
+      printf ("Time (seconds) = %lf\n", (double) timeF/1E6);
+    }
+
+    free(aux1); free(aux2); free(aux3);
+    free(data1); free(data2); free(result);
+  }
+
+  MPI_Finalize();
 
   return 0;
 }
