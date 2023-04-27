@@ -13,7 +13,7 @@
    T -> 3
    N -> 4*/
 
-#define M  100 // Number of sequences
+#define M  1006 // Number of sequences
 #define N  200  // Number of bases per sequence
 
 unsigned int g_seed = 0;
@@ -87,29 +87,24 @@ int main(int argc, char *argv[] ) {
   int *aux2 = (int *) malloc(floor((M)/numprocs)*N*sizeof(int));
   int *aux3 = (int *) malloc(floor((M)/numprocs)*sizeof(int));
 
-  printf("Antes\n");
-
   MPI_Scatter(data1, floor((M)/numprocs)*N, MPI_INT,aux1,floor((M)/numprocs)*N, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Scatter(data2, floor((M)/numprocs)*N, MPI_INT,aux2,floor((M)/numprocs)*N, MPI_INT, 0, MPI_COMM_WORLD);
   
-  printf("Despues\n");
 
   gettimeofday(&tv1, NULL);
 
-  if(fmod(numprocs,M)!=0.0){
-    if(process_Rank == 0){
-      for(i=M; i<(M-fmod(numprocs,M)); i--){
-        printf(" %d \n ",i);
-        result[i]=0;
-        for(j=0;j<N;j++){
-          result[i] += base_distance(data1[i*N+j], data2[i*N+j]);
+  if(process_Rank == 0){
+    if((M % numprocs)!=0){
+        for(i=(M-1); i>=(M-(M % numprocs)); i--){
+          result[i]=0;
+          for(j=0;j<N;j++){
+            result[i] += base_distance(data1[i*N+j], data2[i*N+j]);
+          }
         }
       }
-    }
   }
 
-  for(i=0;i<(numprocs/M);i++) {
-    printf("proceso: %d - %d \n ",process_Rank, i);
+  for(i=0;i<ceil((M)/numprocs);i++) {
     aux3[i]=0;
     for(j=0;j<N;j++) {
     aux3[i] += base_distance(aux1[i*N+j], aux2[i*N+j]);
@@ -119,6 +114,7 @@ int main(int argc, char *argv[] ) {
   gettimeofday(&tv2, NULL);
     
   int microseconds = (tv2.tv_usec - tv1.tv_usec)+ 1000000 * (tv2.tv_sec - tv1.tv_sec);
+  
   MPI_Reduce(&microseconds, &timeF, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
   MPI_Gather(aux3, floor((M)/numprocs), MPI_INT, result, floor((M)/numprocs), MPI_INT, 0, MPI_COMM_WORLD);
 

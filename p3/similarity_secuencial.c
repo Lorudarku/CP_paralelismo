@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#define DEBUG 0
+#define DEBUG 1
 
 /* Translation of the DNA bases
    A -> 0
@@ -11,7 +11,7 @@
    T -> 3
    N -> 4*/
 
-#define M  1000000 // Number of sequences
+#define M  1006 // Number of sequences
 #define N  200  // Number of bases per sequence
 
 unsigned int g_seed = 0;
