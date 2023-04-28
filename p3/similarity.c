@@ -104,7 +104,7 @@ int main(int argc, char *argv[] ) {
       }
   }
 
-  for(i=0;i<ceil((M)/numprocs);i++) {
+  for(i=0;i<floor((M)/numprocs);i++) {
     aux3[i]=0;
     for(j=0;j<N;j++) {
     aux3[i] += base_distance(aux1[i*N+j], aux2[i*N+j]);
